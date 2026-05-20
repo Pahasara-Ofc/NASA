@@ -1,7 +1,7 @@
 {
-  "name": "savetube-youtube-api",
-  "version": "1.0.0",
-  "description": "YouTube Downloader API using SaveTube Backend for Queen Nelumi MD",
+  "name": "savetube-v2-api",
+  "version": "2.0.0",
+  "description": "Premium YouTube Downloader API V2 with custom quality filtering for Queen Nelumi MD",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -14,6 +14,6 @@
   "engines": {
     "node": ">=18.0.0"
   },
-  "author": "Queen Nelumi MD Developer",
+  "author": "@DanuZz",
   "license": "MIT"
 }
