@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const { scrapePeoRewind } = require('./scrape');
+const { scrapeSaveTube } = require('./scrape');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -8,30 +8,29 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// 🏠 සාමාන්‍ය හෝම් රවුට් එක
+// 🏠 හෝම් රවුට් එක
 app.get('/', (req, res) => {
     res.json({
-        message: "Welcome to PeoMobile Rewind TV API 📺",
-        usage: "/api/peorewind?id=[channel_id]&day=[monday/tuesday/wednesday]"
+        message: "Welcome to SaveTube YouTube Downloader API 🚀",
+        usage: "/api/savetube?url=[youtube_video_url]"
     });
 });
 
-// 🚀 Rewind API Endpoint එක
-app.get('/api/peorewind', async (req, res) => {
-    const { id, day } = req.query;
+// 🚀 SaveTube API Endpoint එක
+app.get('/api/savetube', async (req, res) => {
+    const { url } = req.query;
 
-    if (!id || !day) {
+    if (!url) {
         return res.status(400).json({
             status: false,
-            message: "Missing parameters! Please provide 'id' (channel id) and 'day' (e.g. monday)"
+            message: "Missing parameter! Please provide 'url' (YouTube Video URL)"
         });
     }
 
-    const data = await scrapePeoRewind(id, day);
+    const data = await scrapeSaveTube(url);
     res.json(data);
 });
 
-// සර්වර් එක ස්ටාර්ට් කිරීම
 app.listen(PORT, () => {
-    console.log(`🚀 PeoTV Rewind Server is running on port ${PORT}`);
+    console.log(`🚀 SaveTube API Server is running on port ${PORT}`);
 });
