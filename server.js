@@ -1,112 +1,114 @@
 const express = require('express');
-const cors = require('cors');
-const axios = require('axios');
+const { createCanvas, loadImage } = require('canvas');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
-app.use(express.json());
-
-// 📊 සපෝට් කරන වීඩියෝ Qualities
-const ytmp4VideoQualities = ['360', '480', '720', '1080', 'best'];
-
-// 🔗 YouTube URL එකෙන් ID එක වෙන් කරගැනීම
-function ytmp4ExtractId(url) {
-  const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|embed|watch|shorts)\/|.*[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})(?:[&?]|$)/;
-  const match = url.match(regex);
-  return match ? match[1] : null;
-}
-
-// 📥 SaveTube Scraper එක හරහා වැඩ කරන ප්‍රධාන Function එක
-async function ytmp4Download(yturl, quality = 'best') {
-  const videoId = ytmp4ExtractId(yturl);
-  if (!videoId) {
-    throw new Error('Invalid YouTube URL');
-  }
-
-  const q = String(quality).toLowerCase();
-  if (!ytmp4VideoQualities.includes(q)) {
-    throw new Error(`Invalid video quality. Supported: ${ytmp4VideoQualities.join(', ')}`);
-  }
-
-  // 🌐 SaveTube V2 Fetch API (2026 Working URL)
-  const apiUrl = `https://su.savetube.me/api/v2/fetch?url=https://www.youtube.com/watch?v=${videoId}`;
-  
-  const { data } = await axios.get(apiUrl, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-      'Referer': 'https://savetube.me/',
-      'Origin': 'https://savetube.me',
-      'Accept': 'application/json, text/plain, */*'
+// ඔබ ලබා දුන් NASA Landsat ශ්‍රිතය (Function)
+const nasaLandsatScraper = async (text) => {
+    if (!text || typeof text !== 'string') {
+        throw new Error('Please provide a valid text input.');
     }
-  });
 
-  if (!data || !data.status || !data.video_formats || data.video_formats.length === 0) {
-    throw new Error('Failed to fetch video details from SaveTube Backend.');
-  }
+    const queryClean = text.toLowerCase().replace(/[^a-z\s-]/g, '');
+    if (queryClean.replace(/[\s-]/g, '').length === 0) {
+        throw new Error('Please provide a valid name using letters A-Z.');
+    }
 
-  // 🔄 Quality එක අනුව Sort කිරීම
-  const sortedFormats = data.video_formats.sort((a, b) => {
-    const qA = parseInt(a.quality) || 0;
-    const qB = parseInt(b.quality) || 0;
-    return qB - qA;
-  });
+    const baseUrl = 'https://science.nasa.gov/specials/your-name-in-landsat/images/';
+    const gap = 8;
+    const lineGap = 20;
 
-  let selectedVideo = null;
+    const words = queryClean.split(/[\s-]+/).filter(w => w !== '');
+    const allImages = [];
+    const lineHeights = [];
+    const lineWidths = [];
 
-  if (q === 'best') {
-    selectedVideo = sortedFormats[0];
-  } else {
-    selectedVideo = sortedFormats.find(f => f.quality.includes(q));
-    if (!selectedVideo) selectedVideo = sortedFormats[0]; 
-  }
+    for (const word of words) {
+        const lineImages = [];
+        let maxHeight = 0;
+        let totalWidth = 0;
 
-  const cleanQuality = selectedVideo.quality.replace(/p/g, ''); 
-  
-  // 🛠️ Audio + Video Merged ඩවුන්ලෝඩ් ලින්ක් එක
-  const finalDownloadLink = `https://su.savetube.me/api/v2/download/video/${videoId}/${cleanQuality}`;
+        for (const letter of word) {
+            const num = Math.floor(Math.random() * 4) + 1;
+            const url = `${baseUrl}${letter}_${num}.jpg`;
 
-  // 📦 උඹ ඉල්ලපු Output Format එකමයි
-  return {
-    title: data.title,
-    download: finalDownloadLink   
-  };
-}
+            try {
+                const img = await loadImage(url);
+                lineImages.push({ img, width: img.width, height: img.height });
+                if (img.height > maxHeight) maxHeight = img.height;
+                totalWidth += img.width + gap;
+            } catch (e) {
+                lineImages.push({ img: null, width: 200, height: 200, letter });
+                maxHeight = Math.max(maxHeight, 200);
+                totalWidth += 200 + gap;
+            }
+        }
 
-// ==================== API Route (No Endpoints - Direct Base URL) ====================
+        allImages.push(lineImages);
+        lineHeights.push(maxHeight);
+        lineWidths.push(totalWidth - gap);
+    }
 
-app.get('/', async (req, res) => {
-    const { url, quality } = req.query;
+    const maxWidth = Math.max(...lineWidths);
+    const totalHeight = lineHeights.reduce((a, b) => a + b, 0) + (words.length - 1) * lineGap;
 
-    // යූසර් පරාමීටර්ස් එව්වේ නැත්නම් විතරක් Usage එක පෙන්වනවා
-    if (!url) {
-        return res.json({
-            status: false,
-            message: "SaveTube Custom API is Live 🚀",
-            usage: "/?url=[youtube_url]&quality=[best/1080/720/480/360]"
-        });
+    const canvas = createCanvas(maxWidth, totalHeight);
+    const ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = 'rgb(10, 15, 42)';
+    ctx.fillRect(0, 0, maxWidth, totalHeight);
+
+    let currentY = 0;
+    allImages.forEach((line, index) => {
+        const lineTotalWidth = lineWidths[index];
+        const startX = (maxWidth - lineTotalWidth) / 2;
+        let currentX = startX;
+        const currentLineHeight = lineHeights[index];
+
+        for (const item of line) {
+            const yOffset = (currentLineHeight - item.height) / 2;
+
+            if (item.img) {
+                ctx.drawImage(item.img, currentX, currentY + yOffset, item.width, item.height);
+            } else {
+                ctx.fillStyle = 'rgb(60, 60, 80)';
+                ctx.fillRect(currentX, currentY, item.width, currentLineHeight);
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 40px Sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(item.letter.toUpperCase(), currentX + item.width / 2, currentY + currentLineHeight / 2 + 15);
+            }
+
+            currentX += item.width + gap;
+        }
+
+        currentY += currentLineHeight + lineGap;
+    });
+
+    return canvas.toBuffer('image/jpeg');
+};
+
+// වෙබ් API එක සඳහා Route එක නිර්මාණය කිරීම
+app.get('/generate', async (req, res) => {
+    const name = req.query.name;
+
+    if (!name) {
+        return res.status(400).json({ error: 'Please provide a ?name=yourname query parameter.' });
     }
 
     try {
-        const reqQuality = quality ? quality.toLowerCase() : 'best';
-        const result = await ytmp4Download(url, reqQuality);
+        const imageBuffer = await nasaLandsatScraper(name);
         
-        // 🎯 සාර්ථක නම් උඹේ Format එකටම JSON එක දෙනවා
-        res.json({
-            status: true,
-            title: result.title,
-            download: result.download
-        });
-
+        // Response එක රූපයක් (Image) ලෙස බ්‍රව්සරයට යැවීම
+        res.set('Content-Type', 'image/jpeg');
+        res.send(imageBuffer);
     } catch (error) {
-        res.status(500).json({
-            status: false,
-            error: error.message
-        });
+        res.status(500).json({ error: error.message });
     }
 });
 
+// සර්වර් එක ආරම්භ කිරීම
 app.listen(PORT, () => {
-    console.log(`🚀 Server is running on port ${PORT}`);
+    console.log(`Server is running on http://localhost:${PORT}`);
 });
