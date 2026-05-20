@@ -8,14 +8,15 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// 🚀 YouTube Downloader API Endpoint
-app.get('/v2/ytdown', async (req, res) => {
+// 🔥 මෙන්න මේන් රවුට් එකටම (කෙලින්ම / එකට) හැමදේම දැම්මා මචං
+app.get('/', async (req, res) => {
     const { url, quality } = req.query;
 
+    // යූසර් url එකක් එව්වේ නැත්නම් විතරක් Welcome මැසේජ් එක පෙන්වනවා
     if (!url) {
-        return res.status(400).json({
-            status: false,
-            message: "Missing 'url' parameter! Please provide a valid YouTube URL."
+        return res.json({
+            message: "SaveTube Premium API V2 is Live 🚀",
+            usage: "/?url=[youtube_url]&quality=[best/1080/720/360]"
         });
     }
 
@@ -24,14 +25,6 @@ app.get('/v2/ytdown', async (req, res) => {
 
     const data = await scrapeSaveTube(url, reqQuality);
     res.json(data);
-});
-
-// 🏠 Base Route
-app.get('/', (req, res) => {
-    res.json({
-        message: "SaveTube Premium API V2 is Live 🚀",
-        usage: "/v2/ytdown?url=[youtube_url]&quality=[best/1080/720/360]"
-    });
 });
 
 app.listen(PORT, () => {
