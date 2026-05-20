@@ -1,32 +1,37 @@
 const express = require('express');
-const nasaLandsatScraper = require('./scraper');
+const cors = require('cors');
+const { scrapePeoRewind } = require('./scrape');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// API Endpoint එක
-app.get('/generate', async (req, res) => {
-    const text = req.query.text;
+app.use(cors());
+app.use(express.json());
 
-    if (!text) {
-        return res.status(400).json({ error: 'Please provide a "text" query parameter. Example: /generate?text=nelumi' });
-    }
-
-    try {
-        console.log(`Generating image for: ${text}`);
-        const imageBuffer = await nasaLandsatScraper(text);
-        
-        // Response එක image එකක් විදිහට සෙට් කරනවා
-        res.set('Content-Type', 'image/jpeg');
-        res.send(imageBuffer);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: error.message || 'Something went wrong while generating the image.' });
-    }
+// 🏠 සාමාන්‍ය හෝම් රවුට් එක
+app.get('/', (req, res) => {
+    res.json({
+        message: "Welcome to PeoMobile Rewind TV API 📺",
+        usage: "/api/peorewind?id=[channel_id]&day=[monday/tuesday/wednesday]"
+    });
 });
 
-// Server එක start කිරීම
+// 🚀 Rewind API Endpoint එක
+app.get('/api/peorewind', async (req, res) => {
+    const { id, day } = req.query;
+
+    if (!id || !day) {
+        return res.status(400).json({
+            status: false,
+            message: "Missing parameters! Please provide 'id' (channel id) and 'day' (e.g. monday)"
+        });
+    }
+
+    const data = await scrapePeoRewind(id, day);
+    res.json(data);
+});
+
+// සර්වර් එක ස්ටාර්ට් කිරීම
 app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-    console.log(`Test URL: http://localhost:${PORT}/generate?text=danupa`);
+    console.log(`🚀 PeoTV Rewind Server is running on port ${PORT}`);
 });
