@@ -1,19 +1,13 @@
 {
-  "name": "savetube-v2-api",
-  "version": "2.0.0",
-  "description": "Premium YouTube Downloader API V2 with custom quality filtering for Queen Nelumi MD",
+  "name": "nasa-landsat-api",
+  "version": "1.0.0",
+  "description": "Generate names using NASA Landsat images",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "axios": "^1.7.9",
-    "cors": "^2.8.5",
+    "canvas": "^3.0.0",
     "express": "^4.19.2"
-  },
-  "engines": {
-    "node": ">=18.0.0"
-  },
-  "author": "@DanuZz",
-  "license": "MIT"
+  }
 }
