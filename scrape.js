@@ -1,33 +1,20 @@
 const axios = require('axios');
 
-// 🔗 යූටියුබ් URL එකෙන් වීඩියෝ ID එක විතරක් වෙන් කරගන්නා Function එක
+// 🔗 YouTube ID එක වෙන් කරගැනීම
 function extractYouTubeId(url) {
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
     const match = url.match(regExp);
     return (match && match[2].length === 11) ? match[2] : null;
 }
 
-// ⏱️ සෙකන්ඩ්ස් ගාණ විනාඩි සහ පැය වලට හරවන Function එක
-function formatDuration(seconds) {
-    if (!seconds) return "00:00";
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = Math.floor(seconds % 60);
-    
-    if (h > 0) {
-        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-    }
-    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-}
-
-async function scrapeSaveTube(videoUrl) {
+async function scrapeSaveTube(videoUrl, requestedQuality = 'best') {
     try {
         const videoId = extractYouTubeId(videoUrl);
         if (!videoId) {
             return { status: false, message: "Invalid YouTube URL!" };
         }
 
-        // 🌐 SaveTube සිරාම Backend Fetch API එක
+        // 🌐 SaveTube V2 Fetch API
         const apiUrl = `https://cdn.savetube.me/api/v2/fetch?url=https://www.youtube.com/watch?v=${videoId}`;
         
         const { data } = await axios.get(apiUrl, {
@@ -37,60 +24,55 @@ async function scrapeSaveTube(videoUrl) {
             }
         });
 
-        if (!data || !data.status) {
+        if (!data || !data.status || !data.video_formats || data.video_formats.length === 0) {
             return { status: false, message: "Failed to fetch video details from SaveTube." };
         }
 
-        // 📊 අවශ්‍ය විස්තර ටික එකතු කරගැනීම
+        // 📊 මූලික විස්තර
         const title = data.title;
-        const durationRaw = data.duration; // මේක එන්නේ සෙකන්ඩ්ස් වලින්
-        const durationFormatted = formatDuration(durationRaw);
-        const thumbnail = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`; // High Quality Thumbnail URL
+        const duration = data.duration; // Seconds වලින්මයි (උඹේ sample එකේ තිබ්බ විදිහට)
+        const thumbnail = `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
 
-        // 📥 වීඩියෝ (MP4) සහ ඕඩියෝ (MP3) ඩවුන්ලෝඩ් ලින්ක්ස් වෙන් කරගැනීම
-        const videoLinks = [];
-        const audioLinks = [];
+        // 🔄 තියෙන වීඩියෝ ලින්ක්ස් ටික Quality එක අනුව Sort කරගන්නවා (ලොකුම එකේ ඉඳන් පොඩිම එකට)
+        const sortedFormats = data.video_formats.sort((a, b) => {
+            const qA = parseInt(a.quality) || 0;
+            const qB = parseInt(b.quality) || 0;
+            return qB - qA;
+        });
 
-        // වීඩියෝ Qualities (360p, 720p, 1080p වගේ)
-        if (data.video_formats) {
-            data.video_formats.forEach(video => {
-                videoLinks.push({
-                    quality: video.quality + (video.fps ? ` (${video.fps}fps)` : ''),
-                    extension: video.ext,
-                    size: video.size_text,
-                    download_url: video.url
-                });
-            });
+        let selectedVideo = null;
+
+        // 🎯 යූසර් 'best' ඉල්ලුවොත් හෝ මුකුත් එව්වේ නැත්නම් ලොකුම Quality එක දෙනවා
+        if (requestedQuality === 'best') {
+            selectedVideo = sortedFormats[0];
+        } else {
+            // නැත්නම් යූසර් ඉල්ලපු Quality එකට (උදා: 1080) මැච් වෙන එක හොයනවා
+            selectedVideo = sortedFormats.find(f => f.quality.includes(requestedQuality));
+            // ඉල්ලපු එක සයිට් එකේ නැත්නම් තියෙන හොඳම එක දෙනවා බැකප් එකට
+            if (!selectedVideo) selectedVideo = sortedFormats[0];
         }
 
-        // ඕඩියෝ Qualities (128kbps, 320kbps වගේ)
-        if (data.audio_formats) {
-            data.audio_formats.forEach(audio => {
-                audioLinks.push({
-                    quality: audio.quality + 'kbps',
-                    extension: audio.ext,
-                    size: audio.size_text,
-                    download_url: audio.url
-                });
-            });
-        }
+        // 🛠️ SaveTube එකේ 1080p වලින් එහා (1440p, 2160p) Qualities වලට Direct Sound + Video එන CDN ලින්ක් එක හදාගන්නවා
+        const cleanQuality = selectedVideo.quality.replace(/p/g, ''); // '1080p' -> '1080'
+        const finalDownloadLink = `https://cdn.savetube.me/api/v2/download/video/${videoId}/${cleanQuality}`;
 
         return {
             status: true,
-            results: {
-                video_id: videoId,
-                title: title,
-                duration: durationFormatted,
-                thumbnail: thumbnail,
-                download_details: {
-                    video: videoLinks,
-                    audio: audioLinks
-                }
+            creator: "@DanuZz", // 👈 උඹේ ක්‍රියේටර් නේම් එක ගැම්මටම දැම්මා
+            title: title,
+            duration: duration,
+            thumbnail: thumbnail,
+            url: `https://youtu.be/${videoId}`,
+            download: {
+                type: "video",
+                quality: parseInt(cleanQuality) || 1080,
+                label: `${cleanQuality}p`,
+                link: finalDownloadLink
             }
         };
 
     } catch (error) {
-        console.error("SaveTube Scraper Error: ", error.message);
+        console.error("Scraper Error: ", error.message);
         return { status: false, error: error.message };
     }
 }
