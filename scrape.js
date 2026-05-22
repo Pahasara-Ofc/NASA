@@ -1,5 +1,5 @@
 const axios = require("axios");
-const danuzz = require("form-data");
+const FormData = require("form-data");
 
 class ILoveIMGClient {
     constructor() {
