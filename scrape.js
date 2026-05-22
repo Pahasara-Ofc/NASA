@@ -10,7 +10,7 @@ const nasaLandsatScraper = async (text) => {
         throw new Error('Please provide a valid name using letters A-Z.');
     }
 
-    const baseUrl = 'https://science.nasa.gov/specials/your-name-in-landsat/images/';
+    const baseUrl = 'https://science.nasa.gov/specials/your-name-in-landsat';
     const gap = 8;
     const lineGap = 20;
 
