@@ -1,114 +1,52 @@
 const express = require('express');
-const { createCanvas, loadImage } = require('canvas');
+const multer = require('multer');
+const ILoveIMGClient = require('./ILoveIMGClient'); // ඔයාගේ ක්ලාස් එක තියෙන ෆයිල් එකේ නම
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const port = process.env.PORT || 3000;
 
-// ඔබ ලබා දුන් NASA Landsat ශ්‍රිතය (Function)
-const nasaLandsatScraper = async (text) => {
-    if (!text || typeof text !== 'string') {
-        throw new Error('Please provide a valid text input.');
-    }
+// ඉමේජ් එක මෙමරියේ තියාගෙන Buffer එකක් විදිහට ගන්න multer සෙටප් කිරීම
+const storage = multer.memoryStorage();
+const upload = multer({ 
+    storage: storage,
+    limits: { fileSize: 10 * 1024 * 1024 } // උපරිම 10MB දක්වා ෆයිල්ස්
+});
 
-    const queryClean = text.toLowerCase().replace(/[^a-z\s-]/g, '');
-    if (queryClean.replace(/[\s-]/g, '').length === 0) {
-        throw new Error('Please provide a valid name using letters A-Z.');
-    }
+app.use(express.json());
 
-    const baseUrl = 'https://science.nasa.gov/specials/your-name-in-landsat/images/';
-    const gap = 8;
-    const lineGap = 20;
+// සර්වර් එක වැඩද බලන්න සරල රූට් එකක්
+app.get('/', (req, res) => {
+    res.json({ status: "running", message: "Face Blur API is alive!" });
+});
 
-    const words = queryClean.split(/[\s-]+/).filter(w => w !== '');
-    const allImages = [];
-    const lineHeights = [];
-    const lineWidths = [];
-
-    for (const word of words) {
-        const lineImages = [];
-        let maxHeight = 0;
-        let totalWidth = 0;
-
-        for (const letter of word) {
-            const num = Math.floor(Math.random() * 4) + 1;
-            const url = `${baseUrl}${letter}_${num}.jpg`;
-
-            try {
-                const img = await loadImage(url);
-                lineImages.push({ img, width: img.width, height: img.height });
-                if (img.height > maxHeight) maxHeight = img.height;
-                totalWidth += img.width + gap;
-            } catch (e) {
-                lineImages.push({ img: null, width: 200, height: 200, letter });
-                maxHeight = Math.max(maxHeight, 200);
-                totalWidth += 200 + gap;
-            }
-        }
-
-        allImages.push(lineImages);
-        lineHeights.push(maxHeight);
-        lineWidths.push(totalWidth - gap);
-    }
-
-    const maxWidth = Math.max(...lineWidths);
-    const totalHeight = lineHeights.reduce((a, b) => a + b, 0) + (words.length - 1) * lineGap;
-
-    const canvas = createCanvas(maxWidth, totalHeight);
-    const ctx = canvas.getContext('2d');
-
-    ctx.fillStyle = 'rgb(10, 15, 42)';
-    ctx.fillRect(0, 0, maxWidth, totalHeight);
-
-    let currentY = 0;
-    allImages.forEach((line, index) => {
-        const lineTotalWidth = lineWidths[index];
-        const startX = (maxWidth - lineTotalWidth) / 2;
-        let currentX = startX;
-        const currentLineHeight = lineHeights[index];
-
-        for (const item of line) {
-            const yOffset = (currentLineHeight - item.height) / 2;
-
-            if (item.img) {
-                ctx.drawImage(item.img, currentX, currentY + yOffset, item.width, item.height);
-            } else {
-                ctx.fillStyle = 'rgb(60, 60, 80)';
-                ctx.fillRect(currentX, currentY, item.width, currentLineHeight);
-                ctx.fillStyle = 'white';
-                ctx.font = 'bold 40px Sans-serif';
-                ctx.textAlign = 'center';
-                ctx.fillText(item.letter.toUpperCase(), currentX + item.width / 2, currentY + currentLineHeight / 2 + 15);
-            }
-
-            currentX += item.width + gap;
-        }
-
-        currentY += currentLineHeight + lineGap;
-    });
-
-    return canvas.toBuffer('image/jpeg');
-};
-
-// වෙබ් API එක සඳහා Route එක නිර්මාණය කිරීම
-app.get('/generate', async (req, res) => {
-    const name = req.query.name;
-
-    if (!name) {
-        return res.status(400).json({ error: 'Please provide a ?name=yourname query parameter.' });
-    }
-
+// ප්‍රධාන බ්ලර් කරන API එක
+app.post('/api/blur', upload.single('image'), async (req, res) => {
     try {
-        const imageBuffer = await nasaLandsatScraper(name);
+        if (!req.file) {
+            return res.status(400).json({ success: false, error: "Please upload an image file using the 'image' field." });
+        }
+
+        const client = new ILoveIMGClient();
         
-        // Response එක රූපයක් (Image) ලෙස බ්‍රව්සරයට යැවීම
-        res.set('Content-Type', 'image/jpeg');
-        res.send(imageBuffer);
+        // ඔයාගේ execute ෆන්ක්ෂන් එකට බෆර් එක සහ ෆයිල් නම යවනවා
+        const result = await client.execute(req.file.buffer, req.file.originalname);
+
+        if (result.success && !result.is_error) {
+            return res.json(result);
+        } else {
+            return res.status(result.code || 500).json(result);
+        }
+
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        return res.status(500).json({
+            success: false,
+            status: "error",
+            error: "Internal Server Error",
+            message: error.message || error
+        });
     }
 });
 
-// සර්වර් එක ආරම්භ කිරීම
-app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
+app.listen(port, () => {
+    console.log(`Server is running on port ${port}`);
 });
