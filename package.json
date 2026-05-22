@@ -1,13 +1,15 @@
 {
-  "name": "nasa-landsat-api",
+  "name": "iloveimg-blur-api",
   "version": "1.0.0",
-  "description": "Generate names using NASA Landsat images",
+  "description": "Face blurring API using iLoveIMG scratcher",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "canvas": "^3.0.0",
-    "express": "^4.19.2"
+    "axios": "^1.6.8",
+    "express": "^4.19.2",
+    "form-data": "^4.0.0",
+    "multer": "^1.4.5-lts.1"
   }
 }
